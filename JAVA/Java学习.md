@@ -2732,6 +2732,109 @@ public void m8() {
 
 
 
+#### 8.1.3 keySet() 方法
+
+在看`HashMap`的`keySet()` 方法时，发现十分简单，经过调式和查看源码都没能找到什么时候赋值的 `keySet` 。
+
+```java
+    public Set<K> keySet() {
+        Set<K> ks = keySet;
+        if (ks == null) {
+            ks = new KeySet();
+            keySet = ks;
+        }
+        return ks;
+    }
+```
+
+真实的情况为HashMap的key并没有加入到keySet集合中，而是在遍历的时候，使用迭代器对key进行遍历。
+
+如下代码，`KeySet`类中的迭代器函数，返回的是一个`KeyIterator`类的对象。它的 `next()` 方法返回的是`HashIterator`的`nextNode`的`key`。当使用迭代器遍历set内的元素时，`KeySet`类的迭代器，会保证能够依次获取到`HashMap`的节点的`key`值，这就是我们遍历`keySet`的过程的实质。
+
+```java
+    final class KeySet extends AbstractSet<K> {
+        public final int size()                 { return size; }
+        public final void clear()               { HashMap.this.clear(); }
+        public final Iterator<K> iterator()     { return new KeyIterator(); }
+        public final boolean contains(Object o) { return containsKey(o); }
+        public final boolean remove(Object key) {
+            return removeNode(hash(key), key, null, false, true) != null;
+        }
+        public final Spliterator<K> spliterator() {
+            return new KeySpliterator<>(HashMap.this, 0, -1, 0, 0);
+        }
+        public final void forEach(Consumer<? super K> action) {
+            Node<K,V>[] tab;
+            if (action == null)
+                throw new NullPointerException();
+            if (size > 0 && (tab = table) != null) {
+                int mc = modCount;
+                for (int i = 0; i < tab.length; ++i) {
+                    for (Node<K,V> e = tab[i]; e != null; e = e.next)
+                        action.accept(e.key);
+                }
+                if (modCount != mc)
+                    throw new ConcurrentModificationException();
+            }
+        }
+    }
+
+    abstract class HashIterator {
+        Node<K,V> next;        // next entry to return
+        Node<K,V> current;     // current entry
+        int expectedModCount;  // for fast-fail
+        int index;             // current slot
+
+        HashIterator() {
+            expectedModCount = modCount;
+            Node<K,V>[] t = table;
+            current = next = null;
+            index = 0;
+            if (t != null && size > 0) { // advance to first entry
+                do {} while (index < t.length && (next = t[index++]) == null);
+            }
+        }
+
+        public final boolean hasNext() {
+            return next != null;
+        }
+
+        final Node<K,V> nextNode() {
+            Node<K,V>[] t;
+            Node<K,V> e = next;
+            // 实际的元素值和期望元素值不同时，报ConcurrentModificationException
+            if (modCount != expectedModCount)
+                throw new ConcurrentModificationException();
+            if (e == null)
+                throw new NoSuchElementException();
+            if ((next = (current = e).next) == null && (t = table) != null) {
+                do {} while (index < t.length && (next = t[index++]) == null);
+            }
+            return e;
+        }
+
+        public final void remove() {
+            Node<K,V> p = current;
+            if (p == null)
+                throw new IllegalStateException();
+            if (modCount != expectedModCount)
+                throw new ConcurrentModificationException();
+            current = null;
+            K key = p.key;
+            removeNode(hash(key), key, null, false, false);
+            expectedModCount = modCount;
+        }
+    }
+
+    final class KeyIterator extends HashIterator
+        implements Iterator<K> {
+        // 返回下一个节点的key
+        public final K next() { return nextNode().key; }
+    }
+```
+
+
+
 ### 8.2 HashTable
 
 和 HashMap 类似，但它是线程安全的，这意味着同一时刻多个线程同时写入 `HashTable` 不会导致数据不一致。它是遗留类，不应该去使用它，而是使用 `ConcurrentHashMap` 来支持线程安全，`ConcurrentHashMap` 的效率会更高，因为 `ConcurrentHashMap` 引入了分段锁。

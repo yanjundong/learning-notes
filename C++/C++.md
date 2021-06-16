@@ -2836,6 +2836,117 @@ int main() {
 
 # Cmake
 
+## add_library
+
+该指令是将指定的源文件生成链接文件，然后添加到工程中。
+
+```cmake
+add_library(<name> [STATIC | SHARED | MODULE]
+            [EXCLUDE_FROM_ALL]
+            [source1] [source2] [...])
+```
+
+- `<name>` 表示库文件名称，该库文件会根据命令里列出的源文件来创建；
+- `STATIC`、`SHARED`和`MODULE`的作用是指定生成的库文件的类型。STATIC库是目标文件的归档文件，在链接其它目标的时候使用。SHARED库会被动态链接（动态链接库），在运行时会被加载。MODULE库是一种不会被链接到其它目标中的插件，但是可能会在运行时使用dlopen-系列的函数。
+- source1、source2分别表示各个源文件；
+
+## aux_source_directory
+
+该指令会查找指定目录下的所有源文件，然后把结果存入指定变量名。
+
+```cmake
+aux_source_directory(<dir> <variable>)
+```
+
+例如：
+
+```cmake
+# 查找当前目录下的所有源文件
+# 并将名称保存到 DIR_SRCS 变量
+aux_source_directory(. DIR_SRCS)
+
+# 指定生成目标
+add_executable(Demo ${DIR_SRCS})
+```
+
+## link_directories
+
+该指令是指定要链接的库文件的路径，有时候不一定需要该指令。
+
+## target_link_libraries
+
+该指令是把目标文件和库文件进行链接。
+
+```cmake
+target_link_libraries(<target> [item1] [item2] [...]
+                      [[debug|optimized|general] <item>] ...)
+```
+
+- `<target>` 是指通过`add_executable` 和 `add_library` 指令生成的已创建的目标文件；
+- `[item]` 表示库文件没有后缀的名字；
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
