@@ -701,7 +701,7 @@ curl http://127.0.0.1:2375/version
 ```sh
 FROM java:8
 VOLUME /tmp
-#docker-day1-1.0.jar为项目打包为jar包的名字，app.jar为别名
+#springboot-docker.jar为项目打包为jar包的名字，app.jar为别名
 ADD springboot-docker.jar app.jar
 #运行的时候对外提供的端口默认是8090，即便你在这里声明了3000也不会改变默认的端口8090
 EXPOSE 8080
@@ -793,8 +793,6 @@ ENTRYPOINT ["java","-Djava.security.egd=file:/dev/./urandom","-jar","/app.jar"]
 ![image-20210304170307161](https://gitee.com/yanjundong97/picBed/raw/master/images/image-20210304170307161.png)
 
 ![image-20210304170348241](https://gitee.com/yanjundong97/picBed/raw/master/images/image-20210304170348241.png)
-
-
 
 参考网上方法没有成功。
 
