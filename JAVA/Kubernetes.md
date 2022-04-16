@@ -134,5 +134,203 @@ K8s 中的 Pod 主要有两种用法：
 
 <img src="https://raw.githubusercontent.com/yanjundong/image-bed/main/images/image-20220414173759855.png" alt="image-20220414173759855" style="zoom:67%;" />
 
+# 工作负载资源
 
+![image-20220416101306528](https://raw.githubusercontent.com/yanjundong/image-bed/main/images/image-20220416101306528.png)
+
+## Deployments
+
+### 创建 Deployment
+
+**方法一：**
+
+```bash
+kubectl create deployment nginx-deployment --image=nginx:1.14.2 --replicas=3
+```
+
+**方法二：**
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment   #deployment 的名称
+  labels:
+    app: nginx
+spec:
+  replicas: 3   # pod副本数
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.14.2
+        ports:
+        - containerPort: 80
+
+```
+
+
+
+```bash
+kubectl apply -f nginx-deployment.yaml
+```
+
+### 查看 Deployment
+
+可以通过运行 `kubectl get deployments` 检查 Deployment 是否已创建。输出会类似：
+
+```bash
+NAME               READY   UP-TO-DATE   AVAILABLE   AGE
+nginx-deployment   0/3     0            0           1s
+```
+
+- `NAME` 列出了集群中 Deployment 的名称。
+- `READY` 显示应用程序的可用的“副本”数。显示的模式是“就绪个数/期望个数”。
+- `UP-TO-DATE` 显示为了达到期望状态已经更新的副本数。
+- `AVAILABLE` 显示应用可供用户使用的副本数。
+- `AGE` 显示应用程序运行的时间。
+
+
+
+### 更新 Deployment
+
+如果要更新 Deployment，我们可以通过**命令行**或者**修改 yaml 文件** 达到预期。
+
+例如，要将 nginx-deplopment 使用  `nginx:1.16.1` 镜像，而不是 `nginx:1.14.2` 镜像。
+
+```bash
+kubectl set image deployment/nginx-deployment nginx=nginx:1.16.1
+```
+
+
+
+```bash
+# 将 .spec.template.spec.containers[0].image 从 nginx:1.14.2 更改至 nginx:1.16.1，并对 Deployment 执行 edit 操作
+kubectl edit deployment/nginx-deployment
+```
+
+
+
+要查看修改后 Deployment 的上线状态，运行：
+
+```bash
+kubectl rollout status deployment/nginx-deployment
+
+# 输出会类似于：
+Waiting for rollout to finish: 2 out of 3 new replicas have been updated...
+# 或
+deployment "nginx-deployment" successfully rolled out
+```
+
+获取 Deployment 的详细信息：
+
+```bash
+kubectl describe deployments
+```
+
+
+
+> 1. Deployment 可确保在更新时仅关闭一定数量的 Pod。默认情况下，它确保至少所需 Pods 75% 处于运行状态。
+> 2. 仅当 Deployment Pod 模板（即 `.spec.template`）发生改变时，例如模板的标签或容器镜像被更新， 才会触发 Deployment 上线。其他更新（如对 Deployment 执行扩缩容的操作）不会触发上线动作。
+
+### 扩缩放 Deployment
+
+可以通过**命令行**或者**修改 yaml 文件** 的方式达到扩缩放 Deployent 的目的。
+
+```bash
+kubectl scale deployment/nginx-deployment --replicas=10
+```
+
+
+
+```bash
+# 修改 yaml文件中的 .spec.replicas，并对 Deployment 执行 edit 操作
+kubectl edit deployment/nginx-deployment
+```
+
+
+
+如果集群启用了[Pod 的水平自动缩放](https://kubernetes.io/zh/docs/tasks/run-application/horizontal-pod-autoscale-walkthrough/)， 还可以为 Deployment 设置自动缩放器，并基于现有 Pod 的 CPU 利用率选择要运行的 Pod 个数下限和上限。
+
+```bash
+kubectl autoscale deployment/nginx-deployment --min=10 --max=15 --cpu-percent=80
+```
+
+### 回滚 Deployment
+
+```bash
+#历史记录
+kubectl rollout history deployment/my-dep
+
+#查看某个历史详情
+kubectl rollout history deployment/my-dep --revision=2
+
+#回滚(回到上次)
+kubectl rollout undo deployment/my-dep
+
+#回滚(回到指定版本)
+kubectl rollout undo deployment/my-dep --to-revision=2
+```
+
+
+
+### 相关常用命令
+
+```bash
+# 获取 Deployment 详细信息
+kubectl describe deployments
+# 查看 Deployment 上线状态
+kubectl rollout status deployment/deployment名称
+# 查看所以 Deployment 的信息
+kubectl get deployments
+```
+
+
+
+## StatefulSets
+
+### 使用场景
+
+StatefulSet 用来管理某 Pod 集合的部署和扩缩， 并为这些 Pod 提供**持久存储和持久标识符**。
+
+和 Deployment 类似， StatefulSet 管理基于相同容器规约的一组 Pod。但和 Deployment 不同的是， StatefulSet 为它们的每个 Pod 维护了一个有粘性的 ID。这些 Pod 是基于相同的规约来创建的， 但是不能相互替换：无论怎么调度，每个 Pod 都有一个永久不变的 ID。
+
+在应用程序有以下一个或多个需求时，可以考虑使用 StatefulSets：
+
+- 稳定的、唯一的网络标识符。
+- 稳定的、持久的存储。
+- 有序的、优雅的部署和缩放。
+- 有序的、自动的滚动更新。
+
+## DaemonSet
+
+### 使用场景
+
+DaemonSet 确保全部节点上运行一个 Pod 的副本。 当有节点加入集群时， 会为他们新增一个 Pod 。 当有节点从集群移除时，这些 Pod 也会被回收。删除 DaemonSet 将会删除它创建的所有 Pod。
+
+DaemonSet 的一些典型用法：
+
+- 在每个节点上运行集群守护进程
+- 在每个节点上运行日志收集守护进程
+- 在每个节点上运行监控守护进程
+
+
+
+## Jobs
+
+
+
+## CronJob
+
+
+
+## 参考
+
+- https://kubernetes.io/zh/docs/concepts/workloads/controllers/
 
