@@ -301,7 +301,7 @@ kubectl rollout undo deployment/my-dep --to-revision=2
 kubectl describe deployments
 # 查看 Deployment 上线状态
 kubectl rollout status deployment/deployment名称
-# 查看所以 Deployment 的信息
+# 查看所y Deployment 的信息
 kubectl get deployments
 ```
 
@@ -1089,3 +1089,170 @@ kubectl describe svc my-nginx
 
 # 共享存储
 
+## 卷
+
+在 Docker 中，容器在运行时 可以将数据存储（如 /var/lib/mysql）挂载到主机的一个文件目录（如 /my/own/datadir）下。但是在 k8s 中，当容器崩溃时，会按照自动修复机制重新启动一个 Pod，这时在新的主机中就没有之前的挂载文件（/my/own/datadir），容器会以一个干净的状态重启。k8s中的卷（Volume）这一抽象概念能够解决这些问题。
+
+k8s 支持很多类型的卷。Pod 可以同时使用任意数目的卷类型。**临时卷的生命周期与 Pod 相同**，但**持久卷可以比 Pod 的存活期长**。 当Pod 不再存在时，k8s 也会销毁临时卷；不过 k8s 不会销毁持久卷。 对于给定 Pod 中任何类型的卷，在容器重启期间数据都不会丢失。
+
+k8s 支持多种类型的卷，包括 nfs、cephfs、glusterfs等。下面是 nfs 的环境搭建过程：
+
+```bash
+#所有机器安装
+yum install -y nfs-utils
+```
+
+```bash
+#nfs 的主节点
+echo "/nfs/data/ *(insecure,rw,sync,no_root_squash)" > /etc/exports
+
+mkdir -p /nfs/data
+systemctl enable rpcbind --now
+systemctl enable nfs-server --now
+#配置生效
+exportfs -r
+```
+
+```bash
+# nfs 的从节点
+showmount -e 172.31.0.4
+
+#执行以下命令挂载 nfs 服务器上的共享目录到本机路径 /root/nfsmount
+mkdir -p /nfs/data
+
+mount -t nfs 172.31.0.4:/nfs/data /nfs/data
+# 写入一个测试文件
+echo "hello nfs server" > /nfs/data/test.txt
+```
+
+## 持久卷
+
+持久卷（PersistentVolume，PV）是集群中的一块存储，是将应用需要持久化的数据保存到指定位置。
+
+持久卷申领（PersistentVolumeClaim，PVC）表达的是用户对存储的请求。
+
+### 静态供应
+
+**静态供应**是指管理员会提前创建若干个容量不同的 PV 卷，在用户提出 PVC 申请时，会提供给一个最合适的 PV 使用。
+
+![image-20220419134340236](https://raw.githubusercontent.com/yanjundong/image-bed/main/images/image-20220419134340236.png)
+
+下面是一个以 nfs 卷为基础的静态供应的例子：
+
+**1、创建 PV 池**
+
+```bash
+#nfs主节点
+mkdir -p /nfs/data/01
+mkdir -p /nfs/data/02
+mkdir -p /nfs/data/03
+```
+
+**2、创建 PV**
+
+```bash
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv01-10m
+spec:
+  capacity:
+    storage: 10M
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nfs
+  nfs:
+    path: /nfs/data/01
+    server: 172.31.0.4
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv02-1gi
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nfs
+  nfs:
+    path: /nfs/data/02
+    server: 172.31.0.4
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv03-3gi
+spec:
+  capacity:
+    storage: 3Gi
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nfs
+  nfs:
+    path: /nfs/data/03
+    server: 172.31.0.4
+```
+
+**3、创建 PVC**
+
+```bash
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: nginx-pvc
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 200Mi
+  storageClassName: nfs
+```
+
+**4、创建 Pod 并绑定 PVC**
+
+```bash
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: nginx-deploy-pvc
+  name: nginx-deploy-pvc
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: nginx-deploy-pvc
+  template:
+    metadata:
+      labels:
+        app: nginx-deploy-pvc
+    spec:
+      containers:
+      - image: nginx
+        name: nginx
+        volumeMounts:
+        - name: html
+          mountPath: /usr/share/nginx/html
+      volumes:
+        - name: html
+          persistentVolumeClaim:
+            claimName: nginx-pvc
+```
+
+### 动态供应
+
+**动态供应**指集群可以为 PVC 动态提供一个指定容量的卷。这一供应操作是基于 StorageClass 来实现的。
+
+## 临时卷
+
+- https://kubernetes.io/zh/docs/concepts/storage/ephemeral-volumes/
+
+## configMap
+
+configMap 卷提供了向 Pod 注入配置数据的方法。 ConfigMap 对象中存储的数据可以被 configMap 类型的卷引用，然后被 Pod 中运行的容器化应用使用。
+
+## secret
+
+Secret 卷用来保存敏感信息，例如密码、OAuth 令牌和 SSH 密钥。 将这些信息放在 secret 中比放在 [Pod](https://kubernetes.io/docs/concepts/workloads/pods/pod-overview/) 的定义或者 [容器镜像](https://kubernetes.io/zh/docs/reference/glossary/?all=true#term-image) 中来说更加安全和灵活。

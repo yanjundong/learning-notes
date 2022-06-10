@@ -640,6 +640,22 @@ CMD /bin/bash
 - **及时删除临时文件和缓存文件**：特别是在执行apt-get指令后，`/var/cache/apt`下面会缓存了一些安装包；
 - **提高生成速度**：如合理使用cache，减少内容目录下的文件，或使用`．dockerignore`文件指定等；
 
+## 6、Docker安装
+
+### MySQL
+
+```bash
+docker run -p 3306:3306 --name mysql-01 \
+-v /mydata/mysql/log:/var/log/mysql \
+-v /mydata/mysql/data:/var/lib/mysql \
+-v /mydata/mysql/conf:/etc/mysql/conf.d \
+-e MYSQL_ROOT_PASSWORD=root \
+--restart=always \
+-d mysql:5.7 
+```
+
+
+
 # Docker 实践
 
 ## 1、为镜像添加SSH服务
