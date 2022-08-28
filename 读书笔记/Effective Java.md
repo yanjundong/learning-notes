@@ -489,6 +489,147 @@ groupingBy(Function<? super T, ? extends K> classifier,
 
 应当尽量不要并行 Stream，除非有着足够的自信并在真实环境下进行过性能测试。不恰当的使用，可能会降低程序性能，甚至导致运行失败。
 
+# 方法
+
+## 必要时进行保护性拷贝
+
+如果类的使用者会尽其所能破坏这个类的约束条件，就应该保护性地设计程序。
+
+```java
+public final class Period {
+    private final Date start;
+    private final Date end;
+    
+    public Period(Date start, Date end) {
+        if (start.compareTo(end) > 0) {
+            throw new IllegalArgumentException();
+        }
+        this.start = start;
+        this.end = end;
+    }
+    // ...
+}
+```
+
+上面这个类，由于Date类是可变的，因此很容易被有意的使用者破坏约束条件。如：
+
+```java
+Date start = new Date();
+Date end = new Date();
+Period period = new Period(start, end);
+end.setYear(78);
+```
+
+针对该问题，有两种解决方法：
+
+1. 类属性使用不可变的 Instant 或 LocalDateTime 类；
+
+2. 在类的构造方法中，对数据进行保护性拷贝。**拷贝动作要在检查参数的有效性之前进行，并且有效性检查是针对拷贝后的对象**
+
+   ```java
+   public Period(Date start, Date end) {
+       this.start = new Date(start.getTime());
+       this.endnew Date(end.getTime());
+       if (this.start.cmpareTo(this.end) > 0) {
+           throw new IllegalArgumentException();
+       }
+   }
+   ```
+
+> 在上面的代码中没有使用 Date 的clone方法，因为Date类是非final的，恶意者可能会从传入Date的子类（已经覆写了clone方法的子类）。
+
+## 慎用重载
+
+```java
+public class Example {
+
+    public static String classify(Set<?> set) {
+        return "Set";
+    }
+
+    public static String classify(List<?> list) {
+        return "List";
+    }
+
+    public static String classify(Collection<?> list) {
+        return "Unknown Collection";
+    }
+
+    public static void main(String[] args) {
+        Collection<?>[] collections = {
+                new HashSet<String>(),
+                new ArrayList<String>(),
+                new HashMap<String, String>().values()
+        };
+
+        for (Collection<?> collection : collections) {
+            System.out.println(classify(collection));
+        }
+    }
+}
+
+/*
+Unknown Collection
+Unknown Collection
+Unknown Collection
+*/
+```
+
+上述的代码会全部输入 `Unknown Collection` 。是因为<font color="red">要调用哪个重载方法是在编译期做出决定的，而重写的方法是在则是在运行期做出决定</font>。
+
+> 重载方法的选择是静态的，被覆盖方法的选择则是动态的。
+
+
+
+```java
+// 基本类型的自动装箱带来的麻烦
+public class Example {
+    public static void main(String[] args) {
+        Set<Integer> set = new TreeSet<>();
+        List<Integer> list = new ArrayList<>();
+
+        for (int i = -3; i < 3; i++) {
+            set.add(i);
+            list.add(i);
+        }
+        for (int i = 0; i < 3; i++) {
+            set.remove(i);
+            list.remove(i);
+        }
+        System.out.println(set);
+        System.out.println(list);
+    }
+}
+
+/*
+[-3, -2, -1]
+[-2, 0, 2]
+*/
+```
+
+在上面的代码中，`list.remove(i)` 调用的是重载方法 `remove(int i)`，而不是期望的 `remove(E e)`。
+
+## optional的使用
+
+- 容器类型包括集合、映射、Stream、数组和optional，都不应该被包装到 optional 中。
+
+- 在返回一个包含了基本包装类型的optional时，比返回一个基本类型的开销更高，因此类库提供了 OptionalInt、OptionalLong 和 OptionalDouble。
+- 尽量不要将 optional 用在除返回值以外的其他地方。
+
+# 通用编程
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
