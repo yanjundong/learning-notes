@@ -539,18 +539,3 @@ CreatePartitionsResult createPartitions(Map<String, NewPartitions> newPartitions
 
 
 《深入理解Kafka：核心设计与实践原理》 第5章 日志存储
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
