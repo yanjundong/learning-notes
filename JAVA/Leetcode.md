@@ -7,6 +7,23 @@
 ## 求所有子集
 
 ```python
+from typing import List
+
+class Solution:
+    def subsets(self, nums: List[int]) -> List[List[int]]:
+        result = []
+        nums_temp = sorted(nums)
+        self.back_track(0, nums_temp, result, [])
+        return result
+
+    def back_track(self, idx: int, nums: List[int], result: List[List[int]], item_result: List[int]):
+        if 0 < idx <= len(nums):
+            result.append(List.copy(item_result))
+
+        for index in range(idx, len(nums)):
+            item_result.append(nums[index])
+            self.back_track(index + 1, nums, result, item_result)
+            item_result.pop(-1)
 ```
 
 
@@ -122,7 +139,7 @@ class Solution:
             self.visit[index] = False
 ```
 
-
+> https://leetcode.cn/problems/VvJkup/
 
 ## 有重复元素的列表全排列
 
@@ -154,5 +171,5 @@ class Solution:
             self.visit[index] = False
 ```
 
-
+> https://leetcode.cn/problems/7p8L0Z/
 
